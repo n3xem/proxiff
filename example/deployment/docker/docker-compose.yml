@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # Nginx - リバースプロキシ + ミラーリング
+  nginx:
+    image: nginx:alpine
+    container_name: proxiff-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      production:
+        condition: service_healthy
+      proxiff:
+        condition: service_healthy
+    networks:
+      - proxiff-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # 本番サーバー（production）
+  production:
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+    container_name: proxiff-production
+    command: ["./sample-server", "-port", "8080", "-version", "production"]
+    networks:
+      - proxiff-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Proxiff - 差分検出プロキシ
+  proxiff:
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+    container_name: proxiff-proxy
+    command: [
+      "./proxiff",
+      "start",
+      "--newer", "http://newer:8080",
+      "--current", "http://current:8080",
+      "--port", "8080"
+    ]
+    depends_on:
+      newer:
+        condition: service_healthy
+      current:
+        condition: service_healthy
+    networks:
+      - proxiff-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Newer サーバー
+  newer:
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+    container_name: proxiff-newer
+    command: ["./sample-server", "-port", "8080", "-version", "newer"]
+    networks:
+      - proxiff-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Current サーバー
+  current:
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+    container_name: proxiff-current
+    command: ["./sample-server", "-port", "8080", "-version", "current"]
+    networks:
+      - proxiff-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+networks:
+  proxiff-network:
+    driver: bridge
