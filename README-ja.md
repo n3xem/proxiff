@@ -126,9 +126,7 @@ currentサーバーがHTTP 200を返し、newerサーバーがHTTP 201を返す�
 
 ## アーキテクチャ
 
-ProxiffはgRPCベースのプラグインシステムで比較ロジックを実装しています。すべてのコンパレーターはプラグインとして実装され、プラグインが指定されない場合はビルトインのSimpleComparatorが同一プロセス内で実行されます。
-
-詳細は下記の[プラグインシステム](#プラグインシステムgrpc)セクションを参照してください。
+Proxiffは`SimpleComparator`（[google/go-cmp](https://github.com/google/go-cmp)ベース）を使用してレスポンスを比較します。ステータスコード、ヘッダー、レスポンスボディを比較対象とします。比較ロジックは`Comparator`インターフェースの背後にあるため、必要に応じてカスタム実装に差し替え可能です。
 
 ## テスト
 
@@ -154,98 +152,18 @@ proxiff/
 │       └── main.go
 ├── comparator/         # 比較ロジック
 │   ├── comparator.go   # インターフェース定義
-│   ├── simple.go       # デフォルト実装
-│   └── *_test.go       # テスト
+│   ├── simple.go       # SimpleComparator実装
+│   └── simple_test.go  # テスト
 ├── proxy/              # プロキシのコア機能
 │   ├── proxy.go
 │   └── proxy_test.go
-├── plugin/             # プラグインシステム
-│   ├── proto/          # gRPC protobuf定義
-│   ├── interface.go    # プラグインインターフェース
-│   ├── grpc_client.go  # gRPCクライアント実装
-│   ├── grpc_server.go  # gRPCサーバー実装
-│   └── client.go       # プラグインローダー
 └── example/
     ├── deployment/     # サンプルデプロイメント構成
     │   ├── docker/     # Docker Composeを使ったNginx連携例
     │   └── nginx/      # Nginx設定サンプル
-    ├── servers/        # テスト用サンプルサーバー
-    │   └── main.go
-    └── plugin-status-only/  # ステータスコードのみ比較するプラグイン例
+    └── servers/        # テスト用サンプルサーバー
         └── main.go
 ```
-
-## プラグインシステム（gRPC）
-
-Proxiffは[HashiCorp go-plugin](https://github.com/hashicorp/go-plugin)を使用したgRPCベースのプラグインシステムを採用しています：
-
-- **言語非依存**: gRPCなので任意の言語でプラグイン実装可能
-- **プロセス分離**: プラグインがクラッシュしてもメインプロセスに影響なし
-- **簡単な実装**: `Comparator`インターフェースを実装するだけ
-
-### ビルトインプラグイン（デフォルト）
-
-`--plugin`フラグを指定しない場合、ビルトインのSimpleComparatorが自動的に使用されます。比較対象：
-- HTTPステータスコード
-- レスポンスヘッダー
-- レスポンスボディ
-
-ビルトインプラグインは外部プロセスのオーバーヘッドなしに同一プロセス内で実行されますが、プラグインインターフェースは維持されています。
-
-### カスタムプラグインの作成
-
-`Comparator`インターフェースを実装します：
-
-```go
-package main
-
-import (
-    "github.com/hashicorp/go-hclog"
-    "github.com/hashicorp/go-plugin"
-    "github.com/n3xem/proxiff/comparator"
-    pluginpkg "github.com/n3xem/proxiff/plugin"
-)
-
-type MyComparator struct{}
-
-func (m *MyComparator) Compare(newer, current *comparator.Response) *comparator.Result {
-    // カスタム比較ロジック
-    return &comparator.Result{
-        Match:      newer.StatusCode == current.StatusCode,
-        Newer:      newer,
-        Current:    current,
-        Difference: "カスタムロジック",
-    }
-}
-
-func main() {
-    logger := hclog.New(&hclog.LoggerOptions{
-        Level:  hclog.Error,
-        Output: nil,
-    })
-
-    plugin.Serve(&plugin.ServeConfig{
-        HandshakeConfig: pluginpkg.Handshake,
-        Plugins: map[string]plugin.Plugin{
-            "comparator": &pluginpkg.ComparatorPlugin{Impl: &MyComparator{}},
-        },
-        GRPCServer: plugin.DefaultGRPCServer,
-        Logger:     logger,
-    })
-}
-```
-
-ビルドと使用：
-
-```bash
-# プラグインをビルド
-go build -o my-plugin ./my-plugin
-
-# プラグインを使用
-./proxiff start --newer http://localhost:8082 --current http://localhost:8081 --plugin ./my-plugin
-```
-
-HTTPステータスコードのみを比較する実例として`example/plugin-status-only/`を参照してください。
 
 ## ユースケース
 

@@ -95,22 +95,6 @@ curl http://localhost:8080/
 
 その後、クライアントを現在のサービスではなく `http://localhost:8080` に向けます。
 
-## カスタム比較ロジック
-
-レスポンスの比較方法をカスタマイズしたいですか？プラグインを作成してください：
-
-```bash
-# プラグインをビルド（例：ステータスコードのみの比較）
-go build -o plugin-status-only ./example/plugin-status-only
-
-# プラグインを使用
-./proxiff \
-  -newer http://localhost:8082 \
-  -current http://localhost:8081 \
-  -port 8080 \
-  -plugin ./plugin-status-only
-```
-
 ## テスト
 
 全てのテストを実行：
@@ -122,8 +106,7 @@ go test ./... -v
 ## 次のステップ
 
 - 詳細なドキュメントについては [README-ja.md](README-ja.md) をお読みください
-- カスタム比較プラグインの書き方を学ぶには [example/plugin-status-only/main.go](example/plugin-status-only/main.go) をチェックしてください
-- 特定のニーズに合わせて独自のプラグインを実装してください（例：タイムスタンプを無視、特定のJSONフィールドのみを比較など）
+- 比較ロジックの実装は [comparator/simple.go](comparator/simple.go) を参照してください
 
 ## 一般的なユースケース
 

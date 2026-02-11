@@ -95,22 +95,6 @@ Replace the sample servers with your actual services:
 
 Then point your clients to `http://localhost:8080` instead of your current service.
 
-## Custom Comparison Logic
-
-Want to customize how responses are compared? Create a plugin:
-
-```bash
-# Build a plugin (example: status-only comparison)
-go build -o plugin-status-only ./example/plugin-status-only
-
-# Use the plugin
-./proxiff \
-  -newer http://localhost:8082 \
-  -current http://localhost:8081 \
-  -port 8080 \
-  -plugin ./plugin-status-only
-```
-
 ## Testing
 
 Run all tests:
@@ -122,8 +106,7 @@ go test ./... -v
 ## Next Steps
 
 - Read [README.md](README.md) for detailed documentation
-- Check out [example/plugin-status-only/main.go](example/plugin-status-only/main.go) to learn how to write custom comparison plugins
-- Implement your own plugin for your specific needs (e.g., ignore timestamps, compare only specific JSON fields, etc.)
+- See [comparator/simple.go](comparator/simple.go) for the comparison logic implementation
 
 ## Common Use Cases
 

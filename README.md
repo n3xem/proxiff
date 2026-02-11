@@ -8,9 +8,7 @@ A Diffy-like HTTP proxy tool written in Go that compares responses from two diff
 
 - Forward HTTP requests to two different servers (newer and current)
 - Compare responses and log differences
-- Pluggable comparison logic through gRPC plugin system
 - Return the current server's response to clients
-- Built with TDD (Test-Driven Development)
 
 ## Installation
 
@@ -37,8 +35,6 @@ Basic usage:
 - `--newer`: URL of the newer server (required)
 - `--current`: URL of the current server (required)
 - `--port`: Port to listen on (default: 8080)
-- `--plugin`: Path to comparator plugin binary (optional)
-
 ## Example
 
 1. Start two sample servers:
@@ -136,9 +132,7 @@ When responses match completely:
 
 ## Architecture
 
-Proxiff uses a gRPC-based plugin system for comparison logic. All comparators are implemented as plugins. When no plugin is specified, a builtin SimpleComparator runs in the same process for better performance.
-
-See the [Plugin System](#plugin-system-grpc) section below for details.
+Proxiff compares responses using `SimpleComparator` (powered by [google/go-cmp](https://github.com/google/go-cmp)), which compares status codes, headers, and response bodies. The comparison logic is behind a `Comparator` interface, so custom implementations can be swapped in if needed.
 
 ## Testing
 
@@ -151,7 +145,7 @@ go test ./... -v
 Run tests for a specific package:
 
 ```bash
-go test ./plugin/builtin/... -v
+go test ./comparator/... -v
 go test ./proxy/... -v
 ```
 
@@ -162,103 +156,20 @@ proxiff/
 ├── cmd/
 │   └── proxiff/        # Main CLI application
 │       └── main.go
-├── comparator/         # Comparison logic types
-│   └── comparator.go   # Interface and type definitions
+├── comparator/         # Comparison logic
+│   ├── comparator.go   # Interface and type definitions
+│   ├── simple.go       # SimpleComparator implementation
+│   └── simple_test.go
 ├── proxy/              # Proxy core functionality
 │   ├── proxy.go
 │   └── proxy_test.go
-├── plugin/             # Plugin system
-│   ├── builtin/        # Builtin plugins
-│   │   ├── simple.go   # Default SimpleComparator implementation
-│   │   └── simple_test.go
-│   ├── proto/          # gRPC protobuf definitions
-│   ├── interface.go    # Plugin interface
-│   ├── grpc_client.go  # gRPC client implementation
-│   ├── grpc_server.go  # gRPC server implementation
-│   ├── client.go       # Plugin loader
-│   └── builtin.go      # Builtin plugin loader
 └── example/
     ├── deployment/     # Sample deployment configurations
     │   ├── docker/     # Docker Compose example with Nginx
     │   └── nginx/      # Nginx configuration sample
-    ├── servers/        # Sample servers for testing
-    │   └── main.go
-    └── plugin-status-only/  # Status-only comparison plugin example
+    └── servers/        # Sample servers for testing
         └── main.go
 ```
-
-## Plugin System (gRPC)
-
-Proxiff uses [HashiCorp go-plugin](https://github.com/hashicorp/go-plugin) for a gRPC-based plugin system, providing:
-
-- **Language Agnostic**: Implement plugins in any language via gRPC
-- **Process Isolation**: Plugin crashes don't affect the main process
-- **Simple Implementation**: Just implement the `Comparator` interface
-- **Battle-Tested**: Used in Terraform, Vault, and other HashiCorp products
-
-### Builtin Plugin (Default)
-
-When no `--plugin` flag is specified, Proxiff automatically uses a builtin SimpleComparator that compares:
-- HTTP status codes
-- Response headers
-- Response bodies
-
-The builtin plugin runs in the same process for better performance while maintaining the same plugin interface.
-
-### Creating a Custom Plugin
-
-Implement the `Comparator` interface:
-
-```go
-package main
-
-import (
-    "github.com/hashicorp/go-hclog"
-    "github.com/hashicorp/go-plugin"
-    "github.com/n3xem/proxiff/comparator"
-    pluginpkg "github.com/n3xem/proxiff/plugin"
-)
-
-type MyComparator struct{}
-
-func (m *MyComparator) Compare(newer, current *comparator.Response) *comparator.Result {
-    // Custom comparison logic
-    return &comparator.Result{
-        Match:      newer.StatusCode == current.StatusCode,
-        Newer:      newer,
-        Current:    current,
-        Difference: "custom logic",
-    }
-}
-
-func main() {
-    logger := hclog.New(&hclog.LoggerOptions{
-        Level:  hclog.Error,
-        Output: nil,
-    })
-
-    plugin.Serve(&plugin.ServeConfig{
-        HandshakeConfig: pluginpkg.Handshake,
-        Plugins: map[string]plugin.Plugin{
-            "comparator": &pluginpkg.ComparatorPlugin{Impl: &MyComparator{}},
-        },
-        GRPCServer: plugin.DefaultGRPCServer,
-        Logger:     logger,
-    })
-}
-```
-
-Build and use:
-
-```bash
-# Build the plugin
-go build -o my-plugin ./my-plugin
-
-# Use the plugin
-./proxiff start --newer http://localhost:8082 --current http://localhost:8081 --plugin ./my-plugin
-```
-
-See `example/plugin-status-only/` for a working example that only compares HTTP status codes.
 
 ## Deployment Example with Nginx Mirror Module
 
