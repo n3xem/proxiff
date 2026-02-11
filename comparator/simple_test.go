@@ -1,22 +1,20 @@
-package builtin
+package comparator
 
 import (
 	"net/http"
 	"testing"
-
-	"github.com/n3xem/proxiff/comparator"
 )
 
 func TestSimpleComparator_Compare_ExactMatch(t *testing.T) {
 	comp := NewSimpleComparator()
 
-	newer := &comparator.Response{
+	newer := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"hello"}`),
 	}
 
-	current := &comparator.Response{
+	current := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"hello"}`),
@@ -36,13 +34,13 @@ func TestSimpleComparator_Compare_ExactMatch(t *testing.T) {
 func TestSimpleComparator_Compare_StatusCodeDifference(t *testing.T) {
 	comp := NewSimpleComparator()
 
-	newer := &comparator.Response{
+	newer := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"hello"}`),
 	}
 
-	current := &comparator.Response{
+	current := &Response{
 		StatusCode: 404,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"hello"}`),
@@ -62,13 +60,13 @@ func TestSimpleComparator_Compare_StatusCodeDifference(t *testing.T) {
 func TestSimpleComparator_Compare_BodyDifference(t *testing.T) {
 	comp := NewSimpleComparator()
 
-	newer := &comparator.Response{
+	newer := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"hello"}`),
 	}
 
-	current := &comparator.Response{
+	current := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"world"}`),
@@ -88,13 +86,13 @@ func TestSimpleComparator_Compare_BodyDifference(t *testing.T) {
 func TestSimpleComparator_Compare_HeaderDifference(t *testing.T) {
 	comp := NewSimpleComparator()
 
-	newer := &comparator.Response{
+	newer := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"application/json"}},
 		Body:       []byte(`{"message":"hello"}`),
 	}
 
-	current := &comparator.Response{
+	current := &Response{
 		StatusCode: 200,
 		Headers:    http.Header{"Content-Type": []string{"text/plain"}},
 		Body:       []byte(`{"message":"hello"}`),
